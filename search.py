@@ -2,8 +2,8 @@ from problem import HeuristicFunction, Problem, S, A, Solution
 from collections import deque
 from helpers.utils import NotImplemented
 
-#TODO: Import any modules you want to use
-import heapq
+from queue import PriorityQueue
+import itertools
 
 # All search functions take a problem and a state
 # If it is an informed search function, it will also receive a heuristic function
@@ -63,9 +63,38 @@ def DepthFirstSearch(problem: Problem[S, A], initial_state: S) -> Solution:
     NotImplemented()
     
 
-def UniformCostSearch(problem: Problem[S, A], initial_state: S) -> Solution:
-    #TODO: ADD YOUR CODE HERE
-    NotImplemented()
+def UniformCostSearch(problem: Problem[S, A], initial_state: S) -> Solution: 
+    
+    counter = itertools.count()   
+    # queue of the current state and the actions done so far
+    # priority is the accumelated cost to reach to the current node
+    frontier = PriorityQueue()
+    frontier.put((0,next(counter),initial_state, []))
+    
+    visited = set()
+    
+    while not frontier.empty():        
+        curr_cost, _ , curr_state, curr_actions = frontier.get()
+        
+        if problem.is_goal(curr_state):
+            return curr_actions
+        
+        if curr_state in visited:
+            continue
+        
+        visited.add(curr_state)
+        
+        for action in problem.get_actions(curr_state):
+            new_state = problem.get_successor(curr_state, action)
+            
+            if new_state in visited:
+                continue
+            
+            new_actions = curr_actions + [action]
+            action_cost = problem.get_cost(curr_state, action)
+            frontier.put((curr_cost + action_cost, next(counter), new_state, new_actions))
+            
+    return None
 
 def AStarSearch(problem: Problem[S, A], initial_state: S, heuristic: HeuristicFunction) -> Solution:
     #TODO: ADD YOUR CODE HERE

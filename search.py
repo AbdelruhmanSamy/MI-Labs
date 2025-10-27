@@ -101,5 +101,36 @@ def AStarSearch(problem: Problem[S, A], initial_state: S, heuristic: HeuristicFu
     NotImplemented()
 
 def BestFirstSearch(problem: Problem[S, A], initial_state: S, heuristic: HeuristicFunction) -> Solution:
-    #TODO: ADD YOUR CODE HERE
-    NotImplemented()
+    
+    counter = itertools.count()
+    
+    frontier = PriorityQueue()
+    h_inital = heuristic(problem, initial_state)
+    print(h_inital)
+    frontier.put((h_inital, next(counter), initial_state, []))
+    
+    visited = set()
+    
+    while not frontier.empty():
+        _, _, curr_state, curr_actions = frontier.get()
+        
+        if problem.is_goal(curr_state):
+            return curr_actions
+        
+        if curr_state in visited:
+            continue
+        
+        visited.add(curr_state)
+        
+        for action in problem.get_actions(curr_state):
+            new_state = problem.get_successor(curr_state, action)
+            
+            if new_state in visited:
+                continue
+            
+            new_actions = curr_actions + [action]
+            h = heuristic(problem, new_state)
+            
+            frontier.put((h, next(counter), new_state, new_actions))
+        
+    return None

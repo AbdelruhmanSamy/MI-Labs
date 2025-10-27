@@ -14,8 +14,49 @@ import heapq
 # 2. None if there is no solution
 
 def BreadthFirstSearch(problem: Problem[S, A], initial_state: S) -> Solution:
-    #TODO: ADD YOUR CODE HERE
-    NotImplemented()
+    
+    # returninig an empty list in case if the goal is the initial state
+    if problem.is_goal(initial_state):          
+            return []               
+        
+    visited = set()
+    frontier = deque()
+    
+    # In order to track the actions' path taken by the search, i need with each state to save it's current actions list                        
+    # Each frontier entry is (state, actions_done_so_far)
+    
+    frontier.append((initial_state, []))
+    
+    while frontier:
+                
+        # FIFO queue
+        curr_state, curr_actions = frontier.popleft()      
+        
+        if curr_state in visited:
+            continue
+        
+        # Mark state as visited
+        visited.add(curr_state)             
+        
+        
+        for action in problem.get_actions(curr_state):
+            new_state = problem.get_successor(curr_state, action)
+
+            # Don't process previously visited states
+            if new_state in visited:    
+                continue                    
+            
+            # append the last action to actions_list to get the  new_actions_list 
+            new_actions = curr_actions + [action]  
+            
+            # Early check of goal to decrease the complexity from O(b^(d+1)) to O(b^(d))
+            if problem.is_goal(new_state):
+                return new_actions               
+
+            # new state that has not visited before will be appended in the frontier
+            # with all actions taken to get the this state
+            frontier.append((new_state, new_actions))     
+    return None
 
 def DepthFirstSearch(problem: Problem[S, A], initial_state: S) -> Solution:
     #TODO: ADD YOUR CODE HERE

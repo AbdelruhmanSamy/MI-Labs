@@ -4,6 +4,7 @@ from helpers.utils import NotImplemented
 
 from queue import PriorityQueue
 import itertools
+import heapq
 
 # All search functions take a problem and a state
 # If it is an informed search function, it will also receive a heuristic function
@@ -59,8 +60,47 @@ def BreadthFirstSearch(problem: Problem[S, A], initial_state: S) -> Solution:
     return None
 
 def DepthFirstSearch(problem: Problem[S, A], initial_state: S) -> Solution:
-    #TODO: ADD YOUR CODE HERE
-    NotImplemented()
+    """
+    Depth-dirst search explore by going deep for each path before backtrack
+    keep track of visited to avoid loops and returns actions to our goal
+    """
+    # create shared variables so they exist in all recursive calls
+    if not hasattr(DepthFirstSearch, "visited"):
+        DepthFirstSearch.visited = set()
+    if not hasattr(DepthFirstSearch, "path"):
+        DepthFirstSearch.path = []
+    current = initial_state
+    #stop searching if we have reached our goal
+    if problem.is_goal(current):
+        result_path = DepthFirstSearch.path.copy()
+        #clean up static variables before return
+        DepthFirstSearch.visited.clear()
+        DepthFirstSearch.path.clear()
+        return result_path
+    # mark the current state to avoid revisit
+    DepthFirstSearch.visited.add(current)
+    # try every possible action from this state
+    for action in problem.get_actions(current):
+        next_state = problem.get_successor(current, action)
+        # skip states we hve already explored
+        if next_state in DepthFirstSearch.visited:
+            continue
+        # save this step in our current path
+        DepthFirstSearch.path.append(action)
+        # go deeper to the next state
+        result = DepthFirstSearch(problem, next_state)
+        # if we found a valid path return it
+        if result is not None:
+            return result
+        # otherwise undo this step -> backtrack
+        DepthFirstSearch.path.pop()
+    # If we are back to the start and found nothing then we do reset everything
+    if current == problem.get_initial_state():
+        DepthFirstSearch.visited.clear()
+        DepthFirstSearch.path.clear()
+    #no path found
+    return None
+
     
 
 def UniformCostSearch(problem: Problem[S, A], initial_state: S) -> Solution: 
@@ -110,45 +150,83 @@ def UniformCostSearch(problem: Problem[S, A], initial_state: S) -> Solution:
     return None
 
 def AStarSearch(problem: Problem[S, A], initial_state: S, heuristic: HeuristicFunction) -> Solution:
-    #TODO: ADD YOUR CODE HERE
-    NotImplemented()
+    """
+    A* search -> combines the actual cost until now with heuristic estimate to choose the most good path
+    expands nodes based on the lowest estimated total cost f = g + h
+    """
+    # if start is our goal
+    if problem.is_goal(initial_state):
+        return []
+    #pq store tuples of (f_cost, order, current_state, path_taken, g_cost )
+    frontier = []
+    counter = 0
+    heapq.heappush(frontier, (0, counter, initial_state, [], 0))
+    explored = set()
+    while frontier:
+        # pick node with the lowest tot. estimated cost
+        _,_,current, current_path, current_cost = heapq.heappop(frontier)
+        # if reached goal return actions
+        if problem.is_goal(current):
+            return current_path
+        # skip visited 
+        if current in explored:
+            continue
+        #mark state as visited
+        explored.add(current)
+        #check all possible moves from the curr state
+        for action in problem.get_actions(current):
+            next_state = problem.get_successor(current, action)
+            # avoid re visit visited states
+            if next_state in explored:
+                continue
+            #compute cost
+            step_cost = problem.get_cost(current, action)
+            total_cost = current_cost + step_cost
+            est_total = total_cost + heuristic(problem, next_state)
+            #push the new state with its estimated priority
+            counter += 1
+            heapq.heappush(
+                frontier,
+                (est_total, counter, next_state, current_path + [action], total_cost)
+            )
+    # if the queue empty -> no path was found
+    return None
 
 def BestFirstSearch(problem: Problem[S, A], initial_state: S, heuristic: HeuristicFunction) -> Solution:
+    """
+    best first search (greedy) choose the next state to explore based on heuristic estimate
+    always expand the state that appears closest to the goal using the heuristic
+    """
     
-    # Counter passed to frontier in order to prioritize
-    # early-enqueued states in case of draw in cost
-    counter = itertools.count()
-    
-    h_inital = heuristic(problem, initial_state)
-
-    frontier = PriorityQueue()
-    frontier.put((h_inital, next(counter), initial_state, []))
-    
+    #DS
+    #frontier: pq min heap to always expand state that looks like the best option
+    #visited: set to know explored states & prevent re visit them
+    frontier = []
     visited = set()
-    
-    while not frontier.empty():
-        _, _, curr_state, curr_actions = frontier.get()
-        
-        if problem.is_goal(curr_state):
-            return curr_actions
-        
-        if curr_state in visited:
+    #heap store tuples of ( heuristic_value,order, current_state, path )
+    #'order'ensure tie break when heuristic values equal
+    order_counter = 0
+    heapq.heappush(frontier, (heuristic(problem, initial_state), order_counter, initial_state, []))
+    while frontier:
+        # pick state with the smallest heuristic value
+        _,_,current, path = heapq.heappop(frontier)
+        #if we have reach the goal return actions
+        if problem.is_goal(current):
+            return path
+        # prevent re visit already visited states
+        if current in visited:
             continue
-        
-        visited.add(curr_state)
-        
-        for action in problem.get_actions(curr_state):
-            new_state = problem.get_successor(curr_state, action)
-            
-            if new_state in visited:
+        visited.add(current)
+        #explore each possible move from curr state
+        for action in problem.get_actions(current):
+            next_state = problem.get_successor(current, action)
+            #ignore explored states
+            if next_state in visited:
                 continue
-            
-            new_actions = curr_actions + [action]
-            
-            # The algorithm only proritize on the heuristic function, 
-            # not considering actual cost at all
-            h = heuristic(problem, new_state)
-            
-            frontier.put((h, next(counter), new_state, new_actions))
-        
+            # push new state to pq 
+            order_counter += 1
+            heapq.heappush(
+                frontier,
+                (heuristic(problem, next_state), order_counter, next_state, path + [action])
+            )
     return None

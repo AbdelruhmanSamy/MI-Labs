@@ -1,9 +1,7 @@
 from typing import Any, Dict, Set, Tuple, List
 from problem import Problem
 from mathutils import Direction, Point
-from helpers.utils import NotImplemented
 
-#TODO: (Optional) Instead of Any, you can define a type for the parking state
 ParkingState = Tuple[Point]   
 # array of immutable points indicating cars' positions
 # the point at position 'i' indicates car of index i 
@@ -30,7 +28,6 @@ class ParkingProblem(Problem[ParkingState, ParkingAction]):
         for i,car_pos in enumerate(state):
             if self.slots.get(car_pos) != i:
                 return False
-            
         return True
     
     # This function returns a list of all the possible actions that can be applied to the given state
@@ -38,8 +35,8 @@ class ParkingProblem(Problem[ParkingState, ParkingAction]):
         action_list = []
         for i, car_pos in enumerate(state):
             for direction in Direction:
-                new_point = car_pos + direction.to_vector()
-                if new_point in  self.passages and new_point not in state: # the new point is a passage and no other car  at the same point
+                new_car_pos = car_pos + direction.to_vector()
+                if new_car_pos in  self.passages and new_car_pos not in state: # the new point is a passage and no other car  at the same point
                     action_list.append((i, direction))
         
         return action_list                    
@@ -54,9 +51,9 @@ class ParkingProblem(Problem[ParkingState, ParkingAction]):
     # This function returns the cost of applying the given action to the given state
     def get_cost(self, state: ParkingState, action: ParkingAction) -> float:
         index , _ = action
-        return 26 - index
+        return 26 - index 
     
-     # Read a parking problem from text containing a grid of tiles
+    # Read a parking problem from text containing a grid of tiles
     @staticmethod
     def from_text(text: str) -> 'ParkingProblem':
         passages =  set()

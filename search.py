@@ -2,7 +2,8 @@ from problem import HeuristicFunction, Problem, S, A, Solution
 from collections import deque
 from helpers.utils import NotImplemented
 
-#TODO: Import any modules you want to use
+from queue import PriorityQueue
+import itertools
 import heapq
 
 # All search functions take a problem and a state
@@ -102,9 +103,51 @@ def DepthFirstSearch(problem: Problem[S, A], initial_state: S) -> Solution:
 
     
 
-def UniformCostSearch(problem: Problem[S, A], initial_state: S) -> Solution:
-    #TODO: ADD YOUR CODE HERE
-    NotImplemented()
+def UniformCostSearch(problem: Problem[S, A], initial_state: S) -> Solution: 
+    
+    # Counter passed to frontier in order to prioritize
+    # early-enqueued states in case of draw in cost
+    counter = itertools.count()   
+    
+    # queue of the current state and the actions done so far
+    # priority is the accumelated cost to reach to the current node
+    frontier = PriorityQueue()
+    frontier.put((0,next(counter),initial_state, []))
+    
+    # store visited states to apply graph-search
+    visited = set()
+    
+    while not frontier.empty():        
+        curr_cost, _ , curr_state, curr_actions = frontier.get()
+        
+        # Here goal check cannot be before adding to the frontier as in bfs,
+        # because we could get to the same state from different path with lower cost
+        # which will be visited before the higher-cost one
+        if problem.is_goal(curr_state):
+            return curr_actions
+        
+        # don't process previously visited states
+        if curr_state in visited:
+            continue
+        
+        # Marking state as visited
+        visited.add(curr_state)
+        
+        # Expand state
+        for action in problem.get_actions(curr_state):
+            new_state = problem.get_successor(curr_state, action)
+            
+            if new_state in visited:
+                continue
+            
+            new_actions = curr_actions + [action]
+            
+            # The new here is the cost calculation, as the UCS proritize on accumelated cost
+            # from the path beggining till reaching the current state
+            action_cost = problem.get_cost(curr_state, action)
+            frontier.put((curr_cost + action_cost, next(counter), new_state, new_actions))
+            
+    return None
 
 def AStarSearch(problem: Problem[S, A], initial_state: S, heuristic: HeuristicFunction) -> Solution:
     """
@@ -143,7 +186,7 @@ def AStarSearch(problem: Problem[S, A], initial_state: S, heuristic: HeuristicFu
             #push the new state with its estimated priority
             counter += 1
             heapq.heappush(
-                   frontier,
+                frontier,
                 (est_total, counter, next_state, current_path + [action], total_cost)
             )
     # if the queue empty -> no path was found
@@ -154,9 +197,7 @@ def BestFirstSearch(problem: Problem[S, A], initial_state: S, heuristic: Heurist
     best first search (greedy) choose the next state to explore based on heuristic estimate
     always expand the state that appears closest to the goal using the heuristic
     """
-    # if the initial state = goal
-    if problem.is_goal(initial_state):
-        return []
+    
     #DS
     #frontier: pq min heap to always expand state that looks like the best option
     #visited: set to know explored states & prevent re visit them

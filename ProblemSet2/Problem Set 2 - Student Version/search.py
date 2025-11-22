@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Optional, Tuple
 from game import HeuristicFunction, Game, S, A
 from helpers.utils import NotImplemented
 
@@ -49,4 +49,42 @@ def alphabeta_with_move_ordering(game: Game[S, A], state: S, heuristic: Heuristi
 # they now act as chance nodes (they act randomly).
 def expectimax(game: Game[S, A], state: S, heuristic: HeuristicFunction, max_depth: int = -1) -> Tuple[float, A]:
     #TODO: Complete this function
-    NotImplemented()
+    def expectimax_value(state: S, depth: int) -> Tuple[float, Optional[A]]:
+        # check if the current state is terminal then return the first value for the player & no action
+        terminal, values = game.is_terminal(state)
+        if terminal:
+            return values[0], None
+        # if we reach max depth return the heuristic value for state
+        if max_depth != -1 and depth == max_depth:
+            return heuristic(game, state, 0), None 
+        # if it is the player turn maximize else calculate the expected value for chance nodes
+        if game.get_turn(state) == 0:  
+            return max_value(state,depth)
+        else:
+            return chance_value(state,depth)
+    
+    def chance_value(state: S, depth: int) -> Tuple[float, Optional[A]]:
+        # if there is no actions then return the heuristic value
+        if len(game.get_actions(state)) == 0:
+            return heuristic(game,state,0), None
+        expected = 0
+        for action in game.get_actions(state):  
+            successor = game.get_successor(state, action)  
+            value, _ = expectimax_value(successor, depth + 1)  
+            # add the contribution of this action to the expected value by average
+            expected += value / len(game.get_actions(state))
+        return expected, None
+    
+    def max_value(state: S, depth: int) -> Tuple[float, Optional[A]]:
+        # start with the lowest possible value & no action
+        max_v = float('-inf')
+        best_action = None
+        for action in game.get_actions(state):  # go through all possible actions
+            successor = game.get_successor(state, action)  # get the result state
+            value, _ = expectimax_value(successor, depth + 1)  # evaluate the successor usee recursion 
+            # update max value and record action if this value is better
+            if value > max_v:
+                max_v = value
+                best_action = action
+        return max_v, best_action
+    return expectimax_value(state, 0)

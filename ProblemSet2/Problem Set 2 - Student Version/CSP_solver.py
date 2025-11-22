@@ -43,7 +43,21 @@ def minimum_remaining_values(problem: Problem, domains: Dict[str, set]) -> str:
 #            since they contain the current domains of unassigned variables only.
 def forward_checking(problem: Problem, assigned_variable: str, assigned_value: Any, domains: Dict[str, set]) -> bool:
     #TODO: Write this function
-    NotImplemented()
+    for constraint in problem.constraints:
+        # check if binary constraint if yes check if it has assigned vaariable
+        if isinstance(constraint, BinaryConstraint) and assigned_variable in constraint.variables:
+            other = constraint.get_other(assigned_variable) 
+            if other not in domains: # if other variable is already assigned it doesn't appear in domains so skip
+                continue
+            # we use only values that satisfy assigned value under the constraint condition
+            new_domain = {
+                v for v in domains[other] if constraint.condition(assigned_value, v)
+            }
+            if not new_domain: # this means no possible value can satisy constraint given this assignment
+                return False
+            domains[other] = new_domain # update and continue
+    return True 
+
 
 # This function should return the domain of the given variable order based on the "least restraining value" heuristic.
 # IMPORTANT: This function should not modify any of the given arguments.
@@ -57,7 +71,24 @@ def forward_checking(problem: Problem, assigned_variable: str, assigned_value: A
 #            since they contain the current domains of unassigned variables only.
 def least_restraining_values(problem: Problem, variable_to_assign: str, domains: Dict[str, set]) -> List[Any]:
     #TODO: Write this function
-    NotImplemented()
+    value_constraints = []
+    for value in domains[variable_to_assign]:
+        total_eliminated = 0
+        # not modifiy original domain so we copy it
+        temp_domains = {var: dom.copy() for var, dom in domains.items()}
+        # very close to forward checking with another added for loop
+        for constraint in problem.constraints:
+            if isinstance(constraint, BinaryConstraint) and variable_to_assign in constraint.variables:
+                other = constraint.get_other(variable_to_assign)
+                if other not in temp_domains:
+                    continue
+                for v in temp_domains[other]: # cnt how many values of neighbor will be removed
+                    if not constraint.condition(value, v):
+                        total_eliminated+=1
+        value_constraints.append((total_eliminated, value)) 
+    value_constraints.sort() # sort by min no. to be eliminated, if tie -> low to high
+    return [v for t, v in value_constraints] # return values that will less strict others
+
 
 # This function should solve CSP problems using backtracking search with forward checking.
 # The variable ordering should be decided by the MRV heuristic.
@@ -70,4 +101,22 @@ def least_restraining_values(problem: Problem, variable_to_assign: str, domains:
 #            Also, if 1-Consistency deems the whole problem unsolvable, you shouldn't call "problem.is_complete" at all.
 def solve(problem: Problem) -> Optional[Assignment]:
     #TODO: Write this function
-    NotImplemented()
+    if not one_consistency(problem):
+        return None # theree is no solution for this prob.
+    def backtrack(assignment: Assignment, domains: Dict[str, set]) -> Optional[Assignment]:
+        if problem.is_complete(assignment): # as mentioned above return the first sol found
+            return assignment 
+        var = minimum_remaining_values(problem, domains)
+        lrv_vals = least_restraining_values(problem, var, domains)
+        for value in lrv_vals:
+            assignment[var] = value
+            # cpy domains to modifiy it in forward checking
+            new_domains = {v: d.copy() for v, d in domains.items() if v!=var}
+            if forward_checking(problem, var, value, new_domains):
+                result = backtrack(assignment, new_domains) # recurse to continue building the assignment
+                if result is not None:
+                    return result
+            del assignment[var] # undo and and assign other values
+        return None # if no sol was found
+    domains_copy = {var: domain.copy() for var, domain in problem.domains.items()}
+    return backtrack({}, domains_copy)

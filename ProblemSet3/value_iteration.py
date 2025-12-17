@@ -22,27 +22,64 @@ class ValueIterationAgent(Agent[S, A]):
     # if the state is terminal, return 0
     def compute_bellman(self, state: S) -> float:
         #TODO: Complete this function
-        NotImplemented()
+        if self.mdp.is_terminal(state): # check if the state is terminal
+            return 0
+        max_utility=float('-inf')
+        for action in self.mdp.get_actions(state): # looping on available actions
+            successors = self.mdp.get_successor(state, action) 
+            utility = 0.0
+            for next_state, prob in successors.items(): # looping on successors
+                reward = self.mdp.get_reward(state,action,next_state)
+                utility += prob * (reward + self.discount_factor * self.utilities[next_state]) 
+            if utility > max_utility: # maximize utility
+                max_utility = utility
+        return max_utility
     
     # Applies a single utility update
     # then returns True if the utilities has converged (the maximum utility change is less or equal the tolerance)
     # and False otherwise
     def update(self, tolerance: float = 0) -> bool:
         #TODO: Complete this function
-        NotImplemented()
+        utilities={}
+        delta=0
+        for state in self.mdp.get_states(): 
+            utilities[state] = self.compute_bellman(state) # get utility using bellman eq for all states
+            if abs(utilities[state] - self.utilities[state]) > delta: # the maximum difference
+                delta = abs(utilities[state] - self.utilities[state])
+        self.utilities = utilities
+        return delta <= tolerance # check convergence
 
     # This function applies value iteration starting from the current utilities stored in the agent and stores the new utilities in the agent
     # NOTE: this function does incremental update and does not clear the utilities to 0 before running
     # In other words, calling train(M) followed by train(N) is equivalent to just calling train(N+M)
     def train(self, iterations: Optional[int] = None, tolerance: float = 0) -> int:
         #TODO: Complete this function to apply value iteration for the given number of iterations
-        NotImplemented()
+        ind=0
+        # here we do bellman updates on states -> iterations or convergence
+        while iterations is None or ind < iterations: 
+            ind+=1
+            if self.update(tolerance): 
+                break
+        return ind
     
     # Given an environment and a state, return the best action as guided by the learned utilities and the MDP
     # If the state is terminal, return None
     def act(self, env: Environment[S, A], state: S) -> A:
         #TODO: Complete this function
-        NotImplemented()
+        if self.mdp.is_terminal(state): 
+            return None
+        max_utility=float('-inf')
+        best_action = None
+        for action in self.mdp.get_actions(state): # looping on available actions
+            successors = self.mdp.get_successor(state, action)
+            utility = 0.0
+            for next_state, prob in successors.items(): # looping on successors
+                reward = self.mdp.get_reward(state,action,next_state)
+                utility += prob * (reward + self.discount_factor * self.utilities[next_state]) # bellman equation
+            if utility > max_utility: # max utility and best action
+                max_utility = utility
+                best_action = action
+        return best_action
     
     # Save the utilities to a json file
     def save(self, env: Environment[S, A], file_path: str):

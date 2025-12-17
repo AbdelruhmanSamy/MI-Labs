@@ -1,3 +1,4 @@
+from math import floor
 from typing import Dict, List, Optional, Set, Tuple
 from mdp import MarkovDecisionProcess
 from environment import Environment
@@ -78,8 +79,10 @@ class SnakeEnv(Environment[SnakeObservation, Direction]):
             self.rng.seed(seed) # Initialize the random generator using the seed
         # TODO add your code here
         # IMPORTANT NOTE: Define the snake before calling generate_random_apple
-        NotImplemented()
-
+        # reset values to initial
+        self.snake=[Point(floor(self.width/2),floor(self.height/2))] # snake starts at the center of level
+        self.direction = Direction.LEFT
+        self.apple = self.generate_random_apple()
         return SnakeObservation(tuple(self.snake), self.direction, self.apple)
 
     def actions(self) -> List[Direction]:
@@ -92,7 +95,19 @@ class SnakeEnv(Environment[SnakeObservation, Direction]):
         # TODO add your code here
         # a snake can wrap around the grid
         # NOTE: The action order does not matter
-        NotImplemented()
+        actions = []
+        for direction in Direction:
+             # action doesn't move the snake in the same direction
+            if direction != self.direction:
+                #action can't move the snake in the opposite direction of its current direction
+                if (direction == Direction.UP and self.direction == Direction.DOWN) or \
+                   (direction == Direction.DOWN and self.direction == Direction.UP) or \
+                   (direction == Direction.RIGHT and self.direction == Direction.LEFT) or \
+                   (direction == Direction.LEFT and self.direction == Direction.RIGHT):
+                    continue                    
+                else:
+                    actions.append(direction)
+        return actions
 
     def step(self, action: Direction) -> \
             Tuple[SnakeObservation, float, bool, Dict]:
@@ -110,12 +125,50 @@ class SnakeEnv(Environment[SnakeObservation, Direction]):
             - info (Dict): A dictionary containing any extra information. You can keep it empty.
         """
         # TODO Complete the following function
-        NotImplemented()
+        reward=0
 
-        done = False
-        reward = 0
-        observation = SnakeObservation(tuple(self.snake), self.direction, self.apple)
+        # action -> coordinates
+        action_vector=Direction._Vectors[action]
+
+        if action is Direction.NONE:#next point is in same direction
+            action_vector= Direction._Vectors[self.direction]
+
+        # Update the direction to be same as the action
+        if action!=Direction.NONE:
+            self.direction=action
+
+        # move the snake head
+        snake_head=self.snake[0]+action_vector
+        # snake can wrap around the head 
+        snake_head = Point((snake_head.x) % self.width, (snake_head.y) % self.height)
+
+        # sanke in the eat himself
+        if(snake_head in self.snake):
+            reward-=100
+            done= True
+            observation = SnakeObservation(tuple(self.snake), self.direction, self.apple)
+            return observation, reward, done, {}
         
+        # add new head to snake
+        self.snake.insert(0,snake_head)
+        done = False
+        #eating apple
+        if snake_head==self.apple:
+            reward+=1          
+            #new apple for the next
+            if not len(self.snake) == self.width * self.height:
+                self.apple=self.generate_random_apple()
+        else:
+            reward=0
+            # Remove old tail
+            self.snake.pop()        
+        
+        # len snack list = area of the map 
+        if(len(self.snake)==self.width*self.height):        
+            reward+=100
+            done= True
+
+        observation = SnakeObservation(tuple(self.snake), self.direction, self.apple)
         return observation, reward, done, {}
 
     ###########################

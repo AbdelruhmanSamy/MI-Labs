@@ -2,7 +2,6 @@ from typing import Callable, DefaultDict, Dict, Generic, List, Optional, Union
 from agents import Agent
 from environment import Environment, S, A
 from helpers.mt19937 import RandomGenerator
-from helpers.utils import NotImplemented
 
 import json
 from collections import defaultdict
@@ -44,11 +43,27 @@ class RLAgent(Agent[S, A]):
         actions = env.actions()
         if training and self.should_explore():
             # TODO: Return a random action whose index is "self.rng.int(0, len(actions)-1)"
-            NotImplemented()
+            # If we the agent is still training and our exploration scheme told us that we should  explore now,
+            # we return a random action from the list of possible actions
+            return actions[self.rng.int(0, len(actions)-1)]
         else:
             # TODO: return the action with the maximum q-value as calculated by "compute_q" above
             # if more than one action has the maximum q-value, return the one that appears first in the "actions" list
-            NotImplemented()
+
+            # initializing max_q to the least possible value to be optimized on the go
+            max_q = float('-inf')
+            
+            # iterating overa all actions to find the best action
+            for action in actions:
+                # computing the q-value for the current action
+                q_value = self.compute_q(env, observation, action)
+                # If the current action gives higher  q-value, we update max_q and best_action
+                if q_value > max_q:
+                    max_q = q_value
+                    best_action = action
+                    
+            # returning the best action found
+            return best_action
 
 #############################
 #######     SARSA      ######
@@ -82,13 +97,21 @@ class SARSALearningAgent(RLAgent[S, A]):
     def update(self, env: Environment[S, A], state: S, action: A, reward: float, next_state: S, next_action: Optional[A]):
         # TODO: Complete this function to update Q-table using the SARSA update rule
         # If next_action is None, then next_state is a terminal state in which case, we consider the Q-value of next_state to be 0
+        
+        # getting the current q-value Q(s,a)
         curr_q = self.compute_q(env, state, action)
+        
         if next_action is None:
+            #handling terminal state
             next_q = 0
         else:
+            # computing Q(s', a'), using the current Utility function: the main idea of SARSA
             next_q = self.compute_q(env, next_state, next_action)
 
+        # computing sample value using equation derived from Bellman equation
         sample = reward + self.discount_factor * next_q
+        
+        # Finally, updating the Q-value using the SARSA update rule
         self.Q[state][action] = curr_q + self.learning_rate * (sample - curr_q)
         
     # Save the Q-table to a json file
@@ -142,6 +165,8 @@ class QLearningAgent(RLAgent[S, A]):
     # Given a state, compute and return the utility of the state using the function "compute_q"
     def compute_utility(self, env: Environment[S, A], state: S) -> float:
         # TODO: Complete this function.
+        
+        # The utility of a state is defined as the maximum Q-value over all possible actions in that state
         U = max(self.compute_q(env, state, action) for action in self.actions)
         return U
 
@@ -149,13 +174,20 @@ class QLearningAgent(RLAgent[S, A]):
     def update(self, env: Environment[S, A], state: S, action: A, reward: float, next_state: S, done: bool):
         # TODO: Complete this function to update Q-table using the Q-Learning update rule
         # If done is True, then next_state is a terminal state in which case, we consider the Q-value of next_state to be 0
+        
+        # calculating current Q(s,a)
         curr_q = self.compute_q(env, state, action)
         if done:
+            # handling terminal state
             next_q = 0
         else:
+            # computing the utility of next state U(s')
             next_q = self.compute_utility(env, next_state)
             
+        # computing sample value using equation derived from Bellman equation
         sample = reward + self.discount_factor * next_q
+        
+        # Finally, updating the Q-value using the Q-Learning update rule
         self.Q[state][action] = curr_q + self.learning_rate * (sample - curr_q)
 
     # Save the Q-table to a json file
@@ -225,8 +257,12 @@ class ApproximateQLearningAgent(RLAgent[S, A]):
 
     # Given the features of state and an action, compute and return the Q value
     def __compute_q_from_features(self, features: Dict[str, float], action: A) -> float:
+        # TODO: Complete this function
         # NOTE: Remember to cast the action to string before quering self.weights
-        q_value = sum(self.weights[str(action)][feature] * value for feature, value in features.items())
+        
+        # Now q-value is a linear function of weights and features, where it's the wighted sum of all features
+        # This helps much in generalization and fast convergence
+        q_value = sum(self.weights[action][feature] * value for feature, value in features.items())
         return q_value
     # Given the features of a state, compute and return the utility of the state using the function "__compute_q_from_features"
     def __compute_utility_from_features(self, features: Dict[str, float]) -> float:
@@ -242,19 +278,28 @@ class ApproximateQLearningAgent(RLAgent[S, A]):
         # TODO: Complete this function to update weights using the Q-Learning update rule
         # If done is True, then next_state is a terminal state in which case, we consider the Q-value of next_state to be 0
         
+        # getting current state features and current Q(s,a)
         curr_state_features = self.feature_extractor.extract_features(env, state)
         curr_q = self.compute_q(env, state, action)
         
         if done:
+            # handling terminal state
             next_q = 0
         else:
+            # computing next state features and U(s')
             next_state_features = self.feature_extractor.extract_features(env, next_state)
             next_q = self.__compute_utility_from_features(next_state_features)
-            
+        
+        # computing sample value using equation derived from Bellman equation
         sample = reward +  self.discount_factor * next_q
         
-        curr_w = self.weights[action][state]
-        self.weights[action][state] = curr_w + self.learning_rate * (sample - curr_q) * curr_state_features[str(action)]
+        # Getting the current weights for the given action as a map of feature_name -> weight_value
+        curr_w = self.weights[action]
+        
+        # looping on all features to update their corresponding weights using the equation:
+        # w_i = w_i + alpha * (sample - Q(s,a)) * f_i(s)
+        for feature in curr_state_features:
+            self.weights[action][feature] = curr_w[feature] + self.learning_rate * (sample - curr_q) * curr_state_features[feature]
             
         
 
